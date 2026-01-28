@@ -6,7 +6,7 @@ Just a simple repository with examples of agents built with LangGraph.js, demons
 
 This repository exists alongside a blog posts series called _Learning LangGraph.js_. Read the series if you get lost and are worried you might be eaten by a grue:
 
-- **[Part 1: It's Just a Graph](PLACEHOLDER_URL)** - Introduction to LangGraph.js fundamentals
+- **[Part 1: It's Just a Graph](https://medium.com/the-guy-wire/learning-langgraph-js-part-1-its-a-graph-56e0ca277bf5)** - Introduction to LangGraph.js fundamentals
 
 This repo and the blog posts are a distillation of what I learned building [Agents & Arbiters](https://github.com/guyroyse/agents-and-arbiters), a demo exploring multi-agent AI workflows in the context of a text adventure game. So, check that out as well.
 
