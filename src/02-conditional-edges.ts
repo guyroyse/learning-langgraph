@@ -1,60 +1,111 @@
-import { HumanMessage, SystemMessage } from '@langchain/core/messages'
+import { AIMessage, BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { MessagesAnnotation, StateGraph, START, END } from '@langchain/langgraph'
 import dedent from 'dedent'
 
 import { fetchLLM } from './llm.js'
+import { fetchRedisClient, clearRedisClient } from './redis.js'
 
-export async function romanClassifier(document: string): Promise<[string, string]> {
-  // Create the graph that will run the agent
-  const graph = new StateGraph(MessagesAnnotation) as any
+const llm = fetchLLM()
+const redis = await fetchRedisClient()
 
-  // Add the node that is the summarizer
-  graph.addNode('summarizer', async (state: typeof MessagesAnnotation.State) => {
-    const llm = fetchLLM()
+async function zorkRouter(state: typeof MessagesAnnotation.State) {
+  const SYSTEM_PROMPT = dedent`
+    You are a helpful assistant that routes questions to the right expert. You
+    will be provided with a question and you should decide if it is related
+    to Zork. If it is related to Zork, you should respond with "zork". If it
+    is not related to Zork, you should respond with "other".`
 
-    const SYSTEM_PROMPT = dedent`
-      You are a summarization AI. You will be provided with a text passage
-      that contains historical information about ancient civilizations. Your
-      job is to summarize the text passage.`
-    const systemMessage = new SystemMessage(SYSTEM_PROMPT)
+  const systemMessage = new SystemMessage(SYSTEM_PROMPT)
+  const receivedMessages: BaseMessage[] = state.messages
 
-    const messages = [systemMessage, state.messages[0]]
+  const response: AIMessage = await llm.invoke([systemMessage, ...receivedMessages])
 
-    const response = await llm.invoke(messages)
-    return { messages: [response] }
-  })
+  return { messages: [response] }
+}
 
-  graph.addNode('classifier', async (state: typeof MessagesAnnotation.State) => {
-    const llm = fetchLLM()
+function zorkRejector(_state: typeof MessagesAnnotation.State) {
+  const response = new AIMessage("I'm sorry, I can only answer questions about Zork.")
+  return { messages: [response] }
+}
 
-    const SYSTEM_PROMPT = dedent`
-      You are a civilizational classifier AI. You will be provided with a text
-      passage that is contains information about an ancient civilization. You
-      need to determine if that civilization is Ancient Rome or not.`
+async function zorkAgent(state: typeof MessagesAnnotation.State) {
+  const SYSTEM_PROMPT = dedent`
+    You are a helpful assistant that answers questions about the classic
+    text adventure game Zork. You will be provided with a question and you
+    should answer it. You should only answer questions related to Zork. If
+    a question is not related to Zork, you should respond with "I'm sorry,
+    I can only answer questions about Zork."`
 
-    const systemMessage = new SystemMessage(SYSTEM_PROMPT)
-    const messages = [systemMessage, state.messages[1]]
+  const systemMessage = new SystemMessage(SYSTEM_PROMPT)
+  const receivedMessages: BaseMessage[] = state.messages
 
-    const response = await llm.invoke(messages)
-    return { messages: [response] }
-  })
+  const response: AIMessage = await llm.invoke([systemMessage, ...receivedMessages])
 
-  // Wire up the graph
-  graph.addEdge(START, 'summarizer')
-  graph.addEdge('summarizer', 'classifier')
-  graph.addEdge('classifier', END)
+  return { messages: [response] }
+}
 
-  // Compile the graph
-  const workflow = graph.compile()
+async function zorkFactChecker(state: typeof MessagesAnnotation.State) {
+  const SYSTEM_PROMPT = dedent`
+    You are a helpful editor that edits the work of a Zork assistant. Zork
+    assistants are helpful assistants that answer questions about the classic
+    text adventure game Zork. Zork assistants are not the best writers and often
+    make up facts. You will be provided with a question and the assistant's
+    response. You should read the assistant's response and edit it to make it
+    correct. If the assistant's response is already correct, you should just
+    return it. DO NOT generate new responses.`
 
-  // Run the workflow
-  const humanMessage = new HumanMessage(document)
-  const inputMessages = {
+  const systemMessage = new SystemMessage(SYSTEM_PROMPT)
+  const receivedMessages: BaseMessage[] = state.messages
+
+  const response: AIMessage = await llm.invoke([systemMessage, ...receivedMessages])
+
+  return { messages: [response] }
+}
+
+function routeByTopic(state: typeof MessagesAnnotation.State) {
+  const lastMessage = state.messages[state.messages.length - 1] as AIMessage
+  const content = lastMessage.content as string
+
+  return content === 'zork' ? 'zork_agent' : 'zork_rejector'
+}
+
+// @ts-ignore
+function routeRandomly(_state: typeof MessagesAnnotation.State) {
+  return Math.random() < 0.5 ? 'zork_agent' : 'zork_rejector'
+}
+
+// @ts-ignore
+async function routeByConfig(_state: typeof MessagesAnnotation.State) {
+  const topic = await redis.get('zork:topic')
+  return topic === 'zork' ? 'zork_agent' : 'zork_rejector'
+}
+
+const graph = new StateGraph(MessagesAnnotation) as any
+
+graph.addNode('zork_router', zorkRouter)
+graph.addNode('zork_rejector', zorkRejector)
+graph.addNode('zork_agent', zorkAgent)
+graph.addNode('zork_fact_checker', zorkFactChecker)
+
+graph.addEdge(START, 'zork_router')
+graph.addConditionalEdges('zork_router', routeByTopic, ['zork_agent', 'zork_rejector'])
+graph.addEdge('zork_agent', 'zork_fact_checker')
+graph.addEdge('zork_fact_checker', END)
+graph.addEdge('zork_rejector', END)
+
+const workflow = graph.compile()
+
+export async function run(question: string) {
+  const humanMessage = new HumanMessage(question)
+  const inputState = {
     messages: [humanMessage]
   } as typeof MessagesAnnotation.State
 
-  const outputMessages = await workflow.invoke(inputMessages)
+  const finalState: typeof MessagesAnnotation.State = await workflow.invoke(inputState)
 
-  // Return the classification which is the last message
-  return [outputMessages.messages[1].content, outputMessages.messages[2].content]
+  for (const message of finalState.messages) {
+    console.log(`${message.type}: ${message.content}`)
+  }
+
+  await clearRedisClient()
 }
