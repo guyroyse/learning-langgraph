@@ -1,5 +1,6 @@
 import { AIMessage, BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { MessagesAnnotation, StateGraph, START, END } from '@langchain/langgraph'
+import chalk from 'chalk'
 import dedent from 'dedent'
 
 import { fetchLLM } from './llm.js'
@@ -78,7 +79,9 @@ export async function run() {
   const finalState: typeof MessagesAnnotation.State = await workflow.invoke(inputState)
 
   for (const message of finalState.messages) {
-    console.log(`${message.type}: ${message.content}`)
+    const label = message.type === 'human' ? chalk.blue('human:') : chalk.green('ai:')
+    console.log(label)
+    console.log(message.content)
   }
 
   await clearRedisClient()
