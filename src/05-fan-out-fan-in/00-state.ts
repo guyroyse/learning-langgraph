@@ -11,14 +11,9 @@ export const GameTurnAnnotation = Annotation.Root({
     default: () => [],
     reducer: (_, next) => next
   }),
-  actionContext: Annotation<Record<string, string>>({
-    default: () => ({}),
-    reducer: (_, next) => next
-  }),
   entityResponses: Annotation<EntityResponse[]>({
     default: () => [],
     reducer: (prev, next) => [...prev, ...next]
   }),
   finalNarrative: Annotation<string>
 })
-

@@ -7,19 +7,16 @@ import { GameTurnAnnotation } from '../00-state.js'
 const llm = fetchLLM()
 
 const SYSTEM_PROMPT = dedent`
-  You are the Troll Room in the game Zork. You are a small, blood-stained room
-  with passages to the east, south, and a forbidding hole to the west.
-  Bloodstains and deep scratches mar your walls.
+  You are a small, blood-stained room with passages to the east, south, and a
+  forbidding hole to the west. Bloodstains and deep scratches mar your walls.
 
   Respond from the room's perspective about how the player's action affects
   or interacts with your environment. Keep your response to 1-2 sentences.`
 
 export async function roomAgent(state: typeof GameTurnAnnotation.State) {
-  const context = state.actionContext?.room ?? state.playerAction
-
   const response = await llm.invoke([
     new SystemMessage(SYSTEM_PROMPT),
-    new HumanMessage(`What you observe: ${context}`)
+    new HumanMessage(`Player action: ${state.playerAction}`)
   ])
 
   return {

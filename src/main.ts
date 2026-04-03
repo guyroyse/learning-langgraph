@@ -8,6 +8,7 @@ import {
   runRouteByTopic as runStructuredRouteByTopic
 } from './03-structured-output/index.js'
 import { runParseLocation } from './04-custom-annotations/index.js'
+import { runFanOutFanIn, runFanInToNode, runConditionalFanOut } from './05-fan-out-fan-in/index.js'
 import { clearRedisClient } from './redis.js'
 
 // -----------------------------------------------------------------------------
@@ -89,6 +90,22 @@ await runParseLocation(dedent`
   The glass bottle contains:
     A quantity of water
   On the table is an elongated brown sack, smelling of hot peppers.`)
+
+// -----------------------------------------------------------------------------
+// Part 5: Fan-Out / Fan-In
+// -----------------------------------------------------------------------------
+
+console.log('')
+console.log(chalk.bold.yellow('Running Fan-Out / Fan-In'))
+await runFanOutFanIn('attack the troll with the sword')
+
+console.log('')
+console.log(chalk.bold.yellow('Running Fan-In to Node'))
+await runFanInToNode('attack the troll with the sword')
+
+console.log('')
+console.log(chalk.bold.yellow('Running Conditional Fan-Out'))
+await runConditionalFanOut('attack the troll with the sword')
 
 // -----------------------------------------------------------------------------
 // Cleanup
