@@ -1,0 +1,7 @@
+export { roomAgent } from './room.js'
+export { trollAgent } from './troll.js'
+export { axeAgent } from './axe.js'
+export { swordAgent } from './sword.js'
+export { dispatcher } from './dispatcher.js'
+export { router } from './router.js'
+export { arbiter } from './arbiter.js'

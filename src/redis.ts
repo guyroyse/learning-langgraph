@@ -8,6 +8,6 @@ export async function fetchRedisClient() {
 }
 
 export async function clearRedisClient() {
-  if (redis) await redis.quit()
+  if (redis) await redis.close()
   redis = null
 }
